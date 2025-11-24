@@ -1,0 +1,21 @@
+{
+  "name": "ร้านกาแฟหอมกรุ่น POS",
+  "short_name": "Homkrun POS",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f0f8ff",
+  "theme_color": "#007bff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-250.png",
+      "sizes": "250x250",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-500.png",
+      "sizes": "500x500",
+      "type": "image/png"
+    }
+  ]
+}

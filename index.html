@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <link rel="manifest" href="manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>☕ ร้านกาแฟหอมกุ่น | POS & Loyalty (ปรับปรุงใหม่)</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script type="module" src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
+    
+    <style>
+        /* Custom Styles for Blue/Yellow Theme and Layout */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@100..900&display=swap');
+        body { font-family: 'Noto Sans Thai', sans-serif; background-color: #f0f8ff; } 
+        .header-bg { background-color: #007bff; } 
+        .accent-color { background-color: #ffc107; } 
+        .btn-primary { background-color: #007bff; color: white; transition: background-color 0.2s; }
+        .btn-primary:hover { background-color: #0056b3; }
+        .btn-secondary { background-color: #6c757d; color: white; transition: background-color 0.2s; }
+        .btn-secondary:hover { background-color: #5a6268; }
+        .card-bg { background-color: white; }
+        
+        /* Fixed Cart and Menu for POS Layout */
+        #pos-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr; /* Menu (2) and Cart (1) */
+            height: calc(100vh - 64px); /* Full height minus header */
+            overflow: hidden;
+        }
+        
+        .tab-button.active {
+            border-bottom: 3px solid #ffc107;
+            color: #007bff;
+            font-weight: 600;
+        }
+        
+        /* Hide scrollbar for Menu and Cart but still allow scroll */
+        .overflow-y-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        .overflow-y-scroll {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> <title>☕ ร้านกาแฟหอมกรุ่น | POS & Loyalty</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-250.png"> <meta name="theme-color" content="#007bff">
+    </head>
+</head>
+<body class="min-h-screen">
+
+    <div id="receipt-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-[110]">
+        <div class="bg-white p-8 rounded-lg shadow-2xl max-w-sm w-full font-mono">
+            <div class="text-center border-b pb-3 mb-3">
+                <img src="C:\Users\จักรภัทร ตาดี\Desktop\coffeemanagment/Logo.png" alt="Logo" class="mx-auto mt-1 h-40">
+                <h2 class="text-2xl font-bold text-blue-800 mb-1">☕ ร้านกาแฟหอมกุ่น</h2>
+                <p class="text-sm text-gray-600">ใบเสร็จรับเงินอย่างย่อ</p>
+            </div>
+            
+            <div id="receipt-details" class="text-xs mb-3 space-y-1 border-b pb-3">
+                </div>
+            
+            <div id="receipt-items" class="mb-3 border-b pb-3">
+                </div>
+            
+            <div id="receipt-summary" class="mb-4">
+                </div>
+            
+            <div class="text-center text-xs text-gray-600">
+                <p>--- ขอบคุณที่ใช้บริการ ---</p>
+            </div>
+            
+            <button onclick="document.getElementById('receipt-modal').classList.add('hidden')" class="mt-4 w-full p-2 rounded-lg bg-green-500 text-white hover:bg-green-600 font-semibold">เสร็จสิ้น</button>
+            <button onclick="printReceipt()" class="mt-2 w-full p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-semibold">พิมพ์ / PDF</button>
+        </div>
+    </div>
+    
+    <div id="auth-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-2xl max-w-sm w-full">
+            <h2 class="text-2xl font-bold text-center mb-6 text-blue-800">เข้าสู่ระบบ / ลงทะเบียน</h2>
+            
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label for="auth-email" class="block text-sm font-medium text-gray-700">อีเมล</label>
+                    <input type="email" id="auth-email" required class="w-full p-3 border border-gray-300 rounded-lg mt-1 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="auth-password" class="block text-sm font-medium text-gray-700">รหัสผ่าน</label>
+                    <input type="password" id="auth-password" required class="w-full p-3 border border-gray-300 rounded-lg mt-1 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div id="register-fields" class="space-y-4 hidden">
+                    <div>
+                        <label for="auth-name" class="block text-sm font-medium text-gray-700">ชื่อ (สำหรับพนักงาน)</label>
+                        <input type="text" id="auth-name" class="w-full p-3 border border-gray-300 rounded-lg mt-1">
+                    </div>
+                </div>
+                <button type="submit" id="auth-submit-btn" class="btn-primary w-full p-3 rounded-lg font-semibold">เข้าสู่ระบบ</button>
+            </form>
+            
+            <div class="mt-4 text-center">
+                <button id="toggle-auth-mode" class="text-sm text-blue-600 hover:text-blue-800">ยังไม่มีบัญชี? ลงทะเบียน</button>
+            </div>
+            <p id="auth-error-message" class="text-red-500 text-sm mt-3 text-center"></p>
+        </div>
+    </div>
+
+    <header id="app-header" class="header-bg p-4 flex justify-between items-center shadow-lg h-16 hidden">
+        <h1 class="text-2xl font-bold text-white">☕ POS System</h1>
+        <nav>
+            <button id="nav-pos" onclick="showTab('pos')" class="tab-button text-white p-2 mx-2 hover:bg-blue-600 rounded active">หน้าร้าน (POS)</button>
+            <button id="nav-admin" onclick="showTab('admin')" class="tab-button text-white p-2 mx-2 hover:bg-blue-600 rounded hidden">หลังบ้าน (Admin)</button>
+        </nav>
+        <div class="flex items-center space-x-4">
+            <span id="user-info" class="text-white text-sm"></span>
+            <button onclick="logout()" class="btn-secondary px-3 py-1 rounded-lg font-semibold">ออกจากระบบ</button>
+        </div>
+    </header>
+
+    <main id="pos-tab" class="hidden">
+        <div id="pos-layout">
+            
+            <div class="p-4 overflow-y-scroll bg-white">
+                <h2 class="text-2xl font-bold text-blue-800 mb-4 border-b pb-2">รายการสินค้า</h2>
+                
+                <div class="flex space-x-2 mb-4" id="category-filter-container">
+                    </div>
+                
+                <div id="product-list" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    </div>
+            </div>
+
+            <div class="bg-gray-100 flex flex-col border-l border-gray-300">
+                
+                <div class="p-4 border-t border-gray-300 bg-white shadow-lg">
+                    <h3 class="text-lg font-bold text-gray-700 mb-2">ระบบสมาชิก (Loyalty)</h3>
+                    <div class="space-y-2 mb-2">
+                        <input type="tel" id="loyalty-phone-input" placeholder="เบอร์โทรลูกค้า" class="w-full p-2 border rounded-lg text-sm">
+                        <input type="text" id="loyalty-first-name-input" placeholder="ชื่อ (ถ้าลงทะเบียนใหม่)" class="w-full p-2 border rounded-lg text-sm">
+                        <input type="text" id="loyalty-last-name-input" placeholder="นามสกุล (ถ้าลงทะเบียนใหม่)" class="w-full p-2 border rounded-lg text-sm">
+                        <button onclick="findCustomer()" class="w-full bg-yellow-500 text-white p-2 rounded-lg text-sm hover:bg-yellow-600 font-semibold">ค้นหา / ลงทะเบียน</button>
+                    </div>
+                    <div id="customer-info" class="text-sm">
+                        <p class="text-red-500">ยังไม่ได้ระบุลูกค้า</p>
+                    </div>
+                </div>
+
+                <div class="p-4 overflow-y-scroll flex-grow">
+                    <h2 class="text-2xl font-bold text-blue-800 mb-4 border-b pb-2">ตะกร้าสินค้า</h2>
+                    <div id="cart-list" class="space-y-3">
+                        </div>
+                </div>
+
+                <div class="p-4 border-t border-gray-300 bg-white shadow-2xl">
+                    <div id="cart-summary" class="text-xl font-extrabold text-right mb-4">
+                        ยอดรวม: <span class="text-blue-600">0.00</span> บาท
+                    </div>
+                    <button onclick="openPaymentModal()" id="checkout-btn" class="w-full p-3 rounded-lg bg-green-500 text-white hover:bg-green-600 font-extrabold" disabled>
+                        ชำระเงิน
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="admin-tab" class="p-4 hidden">
+        <h2 class="text-3xl font-bold text-blue-800 mb-6">⚙️ ระบบหลังบ้าน (Admin Dashboard)</h2>
+        
+        <div class="flex space-x-4 mb-6 border-b pb-2">
+            <button onclick="showAdminTab('sales')" id="admin-nav-sales" class="tab-button p-2 text-gray-600 active">รายงานยอดขาย</button>
+            <button onclick="showAdminTab('orders')" id="admin-nav-orders" class="tab-button p-2 text-gray-600">ประวัติคำสั่งซื้อ</button>
+            <button onclick="showAdminTab('products')" id="admin-nav-products" class="tab-button p-2 text-gray-600">จัดการสินค้า</button>
+            <button onclick="showAdminTab('users')" id="admin-nav-users" class="tab-button p-2 text-gray-600">จัดการบัญชี</button>
+        </div>
+        
+        <div id="admin-tab-sales" class="bg-white p-6 rounded-lg shadow-xl">
+            <h3 class="text-2xl font-bold mb-4">รายงานสรุปยอดขาย</h3>
+            
+            <div class="flex space-x-3 mb-4">
+                <button onclick="renderSalesReport('daily')" id="filter-daily" class="px-4 py-2 rounded-lg font-semibold bg-blue-100 hover:bg-blue-200 text-blue-800">รายวัน</button>
+                <button onclick="renderSalesReport('weekly')" id="filter-weekly" class="px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700">รายสัปดาห์</button>
+                <button onclick="renderSalesReport('monthly')" id="filter-monthly" class="px-4 py-2 rounded-lg font-semibold bg-gray-200 hover:bg-gray-300 text-gray-700">รายเดือน</button>
+            </div>
+            
+            <button onclick="exportSalesDataToCSV()" class="btn-primary px-4 py-2 rounded-lg font-semibold mb-4">Export เป็น Excel/Google Sheet</button>
+            
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="p-4 bg-blue-100 rounded-lg shadow">
+                    <p class="text-sm text-blue-800">ยอดขายรวม</p>
+                    <p id="report-total-sales" class="text-2xl font-bold text-blue-900">0.00 ฿</p>
+                </div>
+                <div class="p-4 bg-yellow-100 rounded-lg shadow">
+                    <p class="text-sm text-yellow-800">จำนวนออร์เดอร์</p>
+                    <p id="report-total-orders" class="text-2xl font-bold text-yellow-900">0 รายการ</p>
+                </div>
+                <div class="p-4 bg-green-100 rounded-lg shadow">
+                    <p class="text-sm text-green-800">ลูกค้าสมาชิก</p>
+                    <p id="report-total-customers" class="text-2xl font-bold text-green-900">0 คน</p>
+                </div>
+            </div>
+            
+            <div style="height: 400px;" class="bg-gray-50 p-4 rounded-lg">
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+        
+        <div id="admin-tab-orders" class="hidden bg-white p-6 rounded-lg shadow-xl">
+            <h3 class="text-2xl font-bold mb-4 text-blue-800">ประวัติคำสั่งซื้อทั้งหมด</h3>
+            <div class="mb-4">
+                <input type="text" id="order-search-input" oninput="filterOrderHistory()" placeholder="ค้นหาด้วย ID, ชื่อลูกค้า, หรือพนักงาน" class="w-full p-2 border rounded-lg max-w-sm">
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่/เวลา</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลูกค้า</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">พนักงาน</th>
+                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ยอดรวม</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียด</th>
+                        </tr>
+                    </thead>
+                    <tbody id="order-history-list" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div id="admin-tab-products" class="hidden grid grid-cols-3 gap-6">
+            <div class="col-span-1 bg-white p-6 rounded-lg shadow-xl h-fit">
+                <h3 class="text-xl font-bold mb-4 text-blue-700">เพิ่ม/แก้ไข สินค้า</h3>
+                <form id="menu-form" class="space-y-3">
+                    <input type="hidden" id="product-id">
+                    <label class="block text-sm font-medium text-gray-700">ชื่อสินค้า</label>
+                    <input type="text" id="product-name" required class="w-full p-2 border rounded-lg">
+                    
+                    <label class="block text-sm font-medium text-gray-700">ราคา (บาท)</label>
+                    <input type="number" id="product-price" step="0.01" required class="w-full p-2 border rounded-lg">
+                    
+                    <label class="block text-sm font-medium text-gray-700">หมวดหมู่</label>
+                    <input type="text" id="product-category" required class="w-full p-2 border rounded-lg">
+                    
+                    <label class="block text-sm font-medium text-gray-700">รูปภาพ (URL)</label>
+                    <input type="url" id="product-image-url" placeholder="https://example.com/coffee.jpg" class="w-full p-2 border rounded-lg">
+                    
+                    <button type="submit" id="menu-submit-btn" class="btn-primary w-full p-2 rounded-lg font-semibold mt-4">เพิ่มสินค้าใหม่</button>
+                    <button type="button" onclick="resetMenuForm()" class="btn-secondary w-full p-2 rounded-lg font-semibold mt-2">ยกเลิก</button>
+                </form>
+            </div>
+            <div class="col-span-2 bg-white p-6 rounded-lg shadow-xl">
+                <h3 class="text-xl font-bold mb-4 text-blue-700">รายการสินค้าปัจจุบัน</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อ</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ราคา</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รูปภาพ</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-product-list" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div id="admin-tab-users" class="hidden bg-white p-6 rounded-lg shadow-xl">
+            <h3 class="text-2xl font-bold mb-4">จัดการบัญชีพนักงาน (Admin Only)</h3>
+            <div id="admin-user-list" class="space-y-4">
+                </div>
+        </div>
+
+    </div>
+
+    <div id="payment-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="card-bg p-6 rounded-lg shadow-2xl max-w-lg w-full">
+            <h3 class="text-2xl font-bold text-blue-700 mb-4 border-b pb-2">ขั้นตอนการชำระเงิน</h3>
+            
+            <div class="text-lg font-semibold mb-4 p-3 bg-blue-50 rounded-lg">
+                <p id="payment-summary">ยอดรวมที่ต้องชำระ: <span class="text-red-600 font-extrabold">0.00</span> บาท</p>
+            </div>
+
+            <div id="loyalty-redeem-section" class="bg-yellow-50 p-3 rounded-lg mb-4 hidden">
+                <p class="font-bold text-yellow-800 mb-2">💰 แลกแต้มสะสม</p>
+                <div id="current-points-info" class="text-sm mb-2"></div>
+                <div class="flex space-x-2">
+                    <input type="number" id="redeem-points-input" placeholder="จำนวนแต้มที่จะแลก (100 แต้ม = 1 บาท)" class="w-full p-2 border rounded-lg text-sm">
+                    <button onclick="redeemPoints()" class="bg-yellow-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-yellow-600">แลกแต้ม</button>
+                </div>
+                <p id="redeem-info" class="text-sm mt-1 text-green-600"></p>
+            </div>
+
+            <div class="bg-red-50 p-3 rounded-lg mb-4">
+                <p class="font-bold text-red-800 mb-2">🏷️ โค้ดส่วนลด</p>
+                <div class="flex space-x-2 mt-1">
+                    <input type="text" id="discount-code-input" placeholder="กรอกโค้ดส่วนลด" class="w-full p-2 border rounded-lg text-sm">
+                    <button onclick="applyDiscountCode()" class="bg-red-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-red-600 font-semibold">ใช้โค้ด</button>
+                </div>
+                <p id="discount-code-info" class="text-sm mt-1 text-green-600"></p>
+            </div>
+            
+            <div class="bg-blue-50 p-3 rounded-lg mb-4">
+                <p class="font-bold text-blue-800 mb-2">💰 การรับเงินและเงินทอน (สำหรับชำระเงินสด)</p>
+                <div>
+                    <label for="cash-received-input" class="block text-sm font-medium text-gray-700 mb-1">เงินสดที่ได้รับจากลูกค้า (บาท)</label>
+                    <input type="number" id="cash-received-input" placeholder="0.00" step="0.01" oninput="calculateChange()" class="w-full p-2 border border-blue-300 rounded-lg text-lg font-bold">
+                </div>
+                <div id="change-info" class="text-lg font-bold mt-2 text-right">
+                    เงินทอน: <span class="text-green-600">0.00</span> บาท
+                </div>
+            </div>
+            
+            <div id="payment-options" class="space-y-3">
+                <p class="text-md font-medium mb-2 text-gray-700">เลือกวิธีการชำระเงิน:</p>
+                <button onclick="simulatePayment('Cash')" class="w-full p-3 rounded-lg bg-green-500 text-white hover:bg-green-600 font-semibold" disabled>เงินสด (Cash)</button> 
+                <button onclick="simulatePayment('Credit Card')" class="w-full p-3 rounded-lg bg-blue-500 text-white hover:bg-blue-600 font-semibold">บัตรเครดิต (Credit Card)</button>
+                <button onclick="simulatePayment('QR Code')" class="w-full p-3 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 font-semibold">QR Code Payment</button>
+            </div>
+            
+            <button onclick="document.getElementById('payment-modal').classList.add('hidden')" class="w-full mt-4 p-2 rounded-lg bg-gray-400 text-white hover:bg-gray-500">ยกเลิก</button>
+        </div>
+    </div>
+
+    <div id="custom-alert" class="fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white z-50 transition-transform duration-300 transform translate-x-full hidden" role="alert">
+        <span id="alert-message"></span>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getFirestore, collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp, setDoc, limit, orderBy, Timestamp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+
+        // ----------------------------------------------------
+        // 1. Firebase Configuration (*** กรุณาใส่ config ของคุณที่นี่ ***)
+        // ----------------------------------------------------
+        const firebaseConfig = {
+            apiKey: "AIzaSyBdrC56tglzi4X65udBBEplPSD-zx6Fzy0",
+  authDomain: "projectcoffee-9c463.firebaseapp.com",
+  projectId: "projectcoffee-9c463",
+  storageBucket: "projectcoffee-9c463.firebasestorage.app",
+  messagingSenderId: "239685841742",
+  appId: "1:239685841742:web:a569abf31b9739fd27241f",
+  measurementId: "G-PD2NKJ4YHG"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // ----------------------------------------------------
+        // 2. Global State
+        // ----------------------------------------------------
+        let cart = [];
+        let currentCustomer = null;
+        let redemptionAmount = 0;
+        let userRole = null;
+        let currentUserId = null;
+        let myChart = null; 
+        
+        let discountCodeValue = 0; 
+        let staffName = "พนักงาน POS"; 
+        
+        let allOrdersCache = []; // Cache for order history
+        
+        // **NEW FIX:** Stores the order objects for the currently viewed report period (for Export)
+        let currentFilteredOrders = []; 
+
+        // ----------------------------------------------------
+        // 3. Utility Functions
+        // ----------------------------------------------------
+        
+        function showCustomError(message, isError = true) {
+            const alertBox = document.getElementById('custom-alert');
+            const alertMessage = document.getElementById('alert-message');
+            
+            alertMessage.textContent = message;
+            alertBox.classList.remove('hidden', 'bg-red-500', 'bg-green-500', 'translate-x-full');
+            
+            if (isError) {
+                alertBox.classList.add('bg-red-500');
+            } else {
+                alertBox.classList.add('bg-green-500');
+            }
+            
+            // Show alert
+            setTimeout(() => {
+                alertBox.classList.remove('translate-x-full');
+                alertBox.classList.add('translate-x-0');
+            }, 50);
+
+            // Hide alert
+            setTimeout(() => {
+                alertBox.classList.add('translate-x-full');
+                setTimeout(() => alertBox.classList.add('hidden'), 300);
+            }, 4000);
+        }
+
+        window.printReceipt = function() {
+            const modal = document.getElementById('receipt-modal');
+            // ดึงเฉพาะเนื้อหาใบเสร็จด้านใน
+            const receiptContent = modal.querySelector('div.bg-white').outerHTML; 
+
+            // สร้างหน้าต่างใหม่สำหรับการพิมพ์
+            const printWindow = window.open('', '', 'height=600,width=800');
+
+            // สร้างเนื้อหา HTML สำหรับการพิมพ์
+            printWindow.document.write('<html><head><title>ใบเสร็จรับเงิน</title>');
+            // เพิ่ม Stylesheet เพื่อให้การแสดงผลในหน้าต่างพิมพ์ถูกต้อง
+            printWindow.document.write('<style>body { font-family: "Noto Sans Thai", sans-serif; margin: 0; padding: 20px; } .text-center { text-align: center; } .border-b { border-bottom: 1px solid #ccc; } .pb-3 { padding-bottom: 0.75rem; } .mb-3 { margin-bottom: 0.75rem; } .space-y-1 > * + * { margin-top: 0.25rem; } .font-mono { font-family: monospace; } .flex { display: flex; } .justify-between { justify-content: space-between; } .pt-1 { padding-top: 0.25rem; }</style>');
+            printWindow.document.write('</head><body onafterprint="self.close()" >'); // ปิดหน้าต่างเองเมื่อพิมพ์เสร็จ
+            printWindow.document.write(receiptContent);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            
+            // สั่งพิมพ์
+            printWindow.print();
+        };
+
+        // NEW FIX: Date Range Utility for Reports (ปรับปรุงเพื่อให้ช่วงเวลาถูกต้อง)
+        function getDateRange(period) {
+            const now = new Date();
+            let startDate = new Date();
+            // กำหนดให้ endDate เป็นสิ้นสุดของวันนี้เสมอ
+            let endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999); 
+
+            if (period === 'daily') {
+                // Start of today
+                startDate.setHours(0, 0, 0, 0);
+            } else if (period === 'weekly') {
+                // Start of the last 7 days (including today)
+                startDate.setDate(now.getDate() - 6);
+                startDate.setHours(0, 0, 0, 0);
+            } else if (period === 'monthly') {
+                // Start of the current month
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                startDate.setHours(0, 0, 0, 0);
+            } else {
+                // Default to daily if unknown
+                startDate.setHours(0, 0, 0, 0);
+            }
+
+            // Convert to Firebase Timestamp for the query
+            return { 
+                startDate: Timestamp.fromDate(startDate), 
+                endDate: Timestamp.fromDate(endDate) 
+            };
+        }
+
+        // ----------------------------------------------------
+        // 4. Authentication Logic
+        // ----------------------------------------------------
+
+        // Toggle Login/Register
+        document.getElementById('toggle-auth-mode').addEventListener('click', (e) => {
+            e.preventDefault();
+            const form = document.getElementById('auth-form');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const isRegister = form.dataset.mode === 'register';
+
+            if (isRegister) {
+                form.dataset.mode = 'login';
+                submitBtn.innerText = 'เข้าสู่ระบบ';
+                document.getElementById('toggle-auth-mode').innerText = 'ยังไม่มีบัญชี? ลงทะเบียน';
+                document.getElementById('register-fields').classList.add('hidden');
+            } else {
+                form.dataset.mode = 'register';
+                submitBtn.innerText = 'ลงทะเบียน';
+                document.getElementById('toggle-auth-mode').innerText = 'มีบัญชีแล้ว? เข้าสู่ระบบ';
+                document.getElementById('register-fields').classList.remove('hidden');
+            }
+        });
+
+        // Submit Login/Register
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const name = document.getElementById('auth-name').value;
+            const mode = e.target.dataset.mode || 'login';
+            const errorElement = document.getElementById('auth-error-message');
+            errorElement.textContent = '';
+
+            try {
+                if (mode === 'login') {
+                    await signInWithEmailAndPassword(auth, email, password);
+                } else {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    
+                    // Add user to 'users' collection with default 'staff' role
+                    await setDoc(doc(db, "users", userCredential.user.uid), {
+                        email: email,
+                        name: name || 'Staff',
+                        role: 'staff' 
+                    });
+                }
+            } catch (error) {
+                errorElement.textContent = 'Auth Error: ' + error.message;
+            }
+        });
+
+        // Auth State Listener (Crucial for role and name retrieval)
+        onAuthStateChanged(auth, async (user) => {
+            const authModal = document.getElementById('auth-modal');
+            
+            if (user) {
+                currentUserId = user.uid;
+                const userDocRef = doc(db, "users", user.uid); 
+                const userDoc = await getDoc(userDocRef);
+                
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    userRole = userData.role;
+                    staffName = userData.name || "พนักงาน POS"; // Get Staff Name
+                    
+                    initializeAppLayout(true);
+                    document.getElementById('user-info').textContent = `${staffName} (${userRole})`;
+                    authModal.classList.add('hidden');
+                    
+                    if (userRole === 'admin') {
+                        document.getElementById('nav-admin').classList.remove('hidden');
+                        renderAdminUserList();
+                        renderSalesReport('daily'); // <<< INITIAL CALL FOR SALES REPORT
+                        renderOrderHistory(true); // Pre-fetch and cache orders
+                    } else {
+                        document.getElementById('nav-admin').classList.add('hidden');
+                        // Staff only gets POS view, no initial report rendering
+                    }
+                    
+                    // Load data after successful login
+                    fetchProducts();
+                } else {
+                    // Handle case where user exists in Auth but not in Firestore 
+                    showCustomError("โปรดรอ Admin ตั้งค่าบทบาทให้คุณ", true);
+                    initializeAppLayout(false);
+                }
+            } else {
+                initializeAppLayout(false);
+                authModal.classList.remove('hidden');
+            }
+        });
+
+        function initializeAppLayout(isLoggedIn) {
+            document.getElementById('app-header').classList.toggle('hidden', !isLoggedIn);
+            document.getElementById('pos-tab').classList.toggle('hidden', !isLoggedIn);
+            document.getElementById('admin-tab').classList.add('hidden');
+            
+            if (isLoggedIn) {
+                showTab('pos'); // Default to POS tab
+            }
+        }
+
+        window.logout = () => signOut(auth);
+
+        window.showTab = (tab) => {
+            document.querySelectorAll('[id$="-tab"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`${tab}-tab`).classList.remove('hidden');
+            
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`nav-${tab}`).classList.add('active');
+            
+            if (tab === 'admin') {
+                // Ensure only admin can access admin features, but keep the initial call if they succeed in getting here.
+                if (userRole !== 'admin') {
+                    showCustomError("❌ คุณไม่มีสิทธิ์เข้าถึงหน้า Admin", true);
+                    document.getElementById('admin-tab').classList.add('hidden');
+                    document.getElementById('pos-tab').classList.remove('hidden');
+                    document.getElementById(`nav-pos`).classList.add('active');
+                    return;
+                }
+                showAdminTab('sales'); // Default admin view
+            }
+        };
+        
+        // UPDATED: Calls report/history functions when the admin tab changes
+        window.showAdminTab = (tab) => {
+            document.querySelectorAll('[id^="admin-tab-"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`admin-tab-${tab}`).classList.remove('hidden');
+            
+            document.querySelectorAll('[id^="admin-nav-"]').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`admin-nav-${tab}`).classList.add('active');
+            
+            if (tab === 'sales') {
+                renderSalesReport('daily');
+            } else if (tab === 'orders') {
+                renderOrderHistory(); // NEW
+            } else if (tab === 'products') {
+                 renderAdminProductList();
+            }
+        };
+
+        // ----------------------------------------------------
+        // 5. Product (Menu) Logic
+        // ----------------------------------------------------
+        
+        let allProducts = [];
+        let activeCategory = 'all';
+
+        async function fetchProducts() {
+            const productsCol = collection(db, 'products');
+            const productSnapshot = await getDocs(productsCol);
+            allProducts = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderProductList(allProducts);
+            renderCategoryFilters(allProducts);
+        }
+        
+        function renderCategoryFilters(products) {
+            const container = document.getElementById('category-filter-container');
+            const categories = ['all', ...new Set(products.map(p => p.category))].filter(c => c);
+
+            container.innerHTML = categories.map(cat => `
+                <button onclick="filterProducts('${cat}')" 
+                        class="px-4 py-2 rounded-full text-sm font-semibold 
+                        ${cat === activeCategory ? 'bg-blue-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}">
+                    ${cat === 'all' ? 'ทั้งหมด' : cat}
+                </button>
+            `).join('');
+        }
+        
+        window.filterProducts = (category) => {
+            activeCategory = category;
+            const filtered = category === 'all' 
+                ? allProducts 
+                : allProducts.filter(p => p.category === category);
+            renderProductList(filtered);
+            renderCategoryFilters(allProducts); 
+        };
+
+        function renderProductList(products) {
+            const list = document.getElementById('product-list');
+            list.innerHTML = products.map(product => `
+                <div onclick="addToCart('${product.id}')" 
+                    class="card-bg p-4 rounded-lg shadow-md hover:shadow-xl transition duration-200 cursor-pointer border border-gray-100 flex flex-col">
+                    <img src="${product.imageUrl || 'https://via.placeholder.com/150x100.png?text=No+Image'}" 
+                        alt="${product.name}" class="w-full h-24 object-cover rounded-md mb-2">
+                    <h4 class="font-bold text-gray-800 flex-grow">${product.name}</h4>
+                    <p class="text-sm text-gray-500">${product.category}</p>
+                    <p class="text-lg font-extrabold text-green-600 mt-1">${product.price.toFixed(2)} ฿</p>
+                </div>
+            `).join('');
+        }
+
+        // Admin Product Management
+        document.getElementById('menu-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (userRole !== 'admin') {
+                showCustomError("❌ เฉพาะ Admin เท่านั้นที่จัดการสินค้าได้");
+                return;
+            }
+            
+            const id = document.getElementById('product-id').value;
+            const name = document.getElementById('product-name').value.trim();
+            const price = parseFloat(document.getElementById('product-price').value);
+            const category = document.getElementById('product-category').value.trim();
+            const imageUrl = document.getElementById('product-image-url').value.trim();
+            
+            if (isNaN(price) || price < 0) {
+                showCustomError("❌ กรุณาป้อนราคาที่ถูกต้อง");
+                return;
+            }
+
+            const productData = { name, price, category, imageUrl };
+
+            try {
+                if (id) {
+                    await updateDoc(doc(db, "products", id), productData);
+                    showCustomError(`✅ อัปเดตสินค้า "${name}" สำเร็จ`, false);
+                } else {
+                    await addDoc(collection(db, "products"), productData);
+                    showCustomError(`✅ เพิ่มสินค้าใหม่ "${name}" สำเร็จ`, false);
+                }
+                resetMenuForm();
+                fetchProducts();
+                renderAdminProductList();
+            } catch (error) {
+                showCustomError("❌ Error saving product: " + error.message);
+            }
+        });
+
+        window.editProduct = (id, name, price, category, imageUrl) => {
+            document.getElementById('product-id').value = id;
+            document.getElementById('product-name').value = name;
+            document.getElementById('product-price').value = price;
+            document.getElementById('product-category').value = category;
+            document.getElementById('product-image-url').value = imageUrl;
+            document.getElementById('menu-submit-btn').textContent = 'บันทึกการแก้ไข';
+            showCustomError(`กำลังแก้ไขสินค้า: ${name}`, false);
+        };
+
+        window.resetMenuForm = () => {
+            document.getElementById('product-id').value = '';
+            document.getElementById('product-name').value = '';
+            document.getElementById('product-price').value = '';
+            document.getElementById('product-category').value = '';
+            document.getElementById('product-image-url').value = '';
+            document.getElementById('menu-submit-btn').textContent = 'เพิ่มสินค้าใหม่';
+        };
+
+        window.deleteProduct = async (id, name) => {
+            if (userRole !== 'admin') {
+                showCustomError("❌ เฉพาะ Admin เท่านั้นที่จัดการสินค้าได้");
+                return;
+            }
+            if (confirm(`คุณต้องการลบสินค้า "${name}" ใช่หรือไม่?`)) {
+                try {
+                    await deleteDoc(doc(db, "products", id));
+                    showCustomError(`✅ ลบสินค้า "${name}" สำเร็จ`, false);
+                    fetchProducts();
+                    renderAdminProductList();
+                } catch (error) {
+                    showCustomError("❌ Error deleting product: " + error.message);
+                }
+            }
+        };
+
+        async function renderAdminProductList() {
+            const productsCol = collection(db, 'products');
+            const productSnapshot = await getDocs(productsCol);
+            const products = productSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            const listBody = document.getElementById('admin-product-list');
+            listBody.innerHTML = products.map(p => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${p.name} (${p.category})</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">${p.price.toFixed(2)} ฿</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <img src="${p.imageUrl || 'https://via.placeholder.com/50x30.png?text=N/A'}" class="h-8 w-8 object-cover rounded" alt="Product Image">
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="editProduct('${p.id}', '${p.name}', ${p.price}, '${p.category}', '${p.imageUrl}')" 
+                                class="text-indigo-600 hover:text-indigo-900 mx-1">แก้ไข</button>
+                        <button onclick="deleteProduct('${p.id}', '${p.name}')" 
+                                class="text-red-600 hover:text-red-900 mx-1">ลบ</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+
+        // ----------------------------------------------------
+        // 6. Cart Logic
+        // ----------------------------------------------------
+        
+        window.addToCart = (productId) => {
+            const product = allProducts.find(p => p.id === productId);
+            if (!product) {
+                showCustomError("❌ ไม่พบสินค้านี้");
+                return;
+            }
+            
+            const existingItem = cart.find(item => item.id === productId);
+            
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    quantity: 1
+                });
+            }
+            showCustomError(`✅ เพิ่ม ${product.name} ลงในตะกร้า`, false);
+            renderCart();
+        };
+
+        window.updateQuantity = (productId, change) => {
+            const index = cart.findIndex(item => item.id === productId);
+            if (index > -1) {
+                cart[index].quantity += change;
+                if (cart[index].quantity <= 0) {
+                    cart.splice(index, 1); // Remove if quantity is zero or less
+                }
+            }
+            renderCart();
+            updatePaymentModalSummary(); // Important to update total immediately
+        };
+        
+        const calculateCartTotal = function() {
+            const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+            // Apply code discount (Max reduction is subtotal)
+            let codeDiscount = discountCodeValue;
+            if (subtotal - codeDiscount < 0) {
+                codeDiscount = subtotal;
+            }
+            let currentTotal = subtotal - codeDiscount;
+
+            // Apply points redemption (Max reduction is remaining total)
+            // Redemption: 100 points = 1 THB
+            const pointsToRedeem = redemptionAmount * 100; 
+            let redeemDiscount = redemptionAmount;
+            if (currentTotal - redeemDiscount < 0) {
+                redeemDiscount = currentTotal > 0 ? currentTotal : 0;
+            }
+            const finalTotal = currentTotal - redeemDiscount;
+
+            return {
+                subtotal,
+                code_discount: codeDiscount,
+                redeem_discount: redeemDiscount,
+                points_redeemed: pointsToRedeem,
+                total: finalTotal
+            };
+        };
+
+        window.renderCart = () => {
+            const list = document.getElementById('cart-list');
+            const summary = document.getElementById('cart-summary');
+            const checkoutBtn = document.getElementById('checkout-btn');
+
+            if (cart.length === 0) {
+                list.innerHTML = '<p class="text-gray-500">ตะกร้าว่างเปล่า</p>';
+                summary.innerHTML = 'ยอดรวม: <span class="text-blue-600">0.00</span> บาท';
+                checkoutBtn.disabled = true;
+                return;
+            }
+
+            const totalComponents = calculateCartTotal();
+            const finalTotal = totalComponents.total;
+
+            list.innerHTML = cart.map(item => `
+                <div class="flex justify-between items-center p-2 bg-white rounded-lg shadow-sm">
+                    <div class="flex-grow">
+                        <p class="font-semibold text-sm">${item.name}</p>
+                        <p class="text-xs text-gray-500">${item.price.toFixed(2)} ฿</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="updateQuantity('${item.id}', -1)" class="text-red-500 hover:text-red-700 font-bold text-lg">-</button>
+                        <span class="text-md font-bold w-6 text-center">${item.quantity}</span>
+                        <button onclick="updateQuantity('${item.id}', 1)" class="text-green-500 hover:text-green-700 font-bold text-lg">+</button>
+                    </div>
+                    <p class="font-bold text-right w-16">${(item.price * item.quantity).toFixed(2)}</p>
+                </div>
+            `).join('');
+
+            let summaryHTML = `ยอดรวม (ก่อนลด): <span>${totalComponents.subtotal.toFixed(2)}</span> บาท`;
+            
+            if (totalComponents.code_discount > 0) {
+                summaryHTML += `<br>ส่วนลดโค้ด: <span class="text-red-500">- ${totalComponents.code_discount.toFixed(2)}</span> บาท`;
+            }
+            if (totalComponents.redeem_discount > 0) {
+                summaryHTML += `<br>ส่วนลดแต้ม: <span class="text-red-500">- ${totalComponents.redeem_discount.toFixed(2)}</span> บาท`;
+            }
+
+            summary.innerHTML = `
+                <p class="text-base text-gray-600 font-normal text-right">${summaryHTML}</p>
+                <p class="mt-2">ยอดรวมสุทธิ: <span class="text-blue-600">${finalTotal.toFixed(2)}</span> บาท</p>
+            `;
+            
+            checkoutBtn.disabled = finalTotal <= 0;
+        };
+
+        // ----------------------------------------------------
+        // 7. Loyalty & Discount Logic
+        // ----------------------------------------------------
+        
+        window.findCustomer = async function() {
+            const phone = document.getElementById('loyalty-phone-input').value.trim();
+            const firstName = document.getElementById('loyalty-first-name-input').value.trim();
+            const lastName = document.getElementById('loyalty-last-name-input').value.trim();
+            const infoDiv = document.getElementById('customer-info');
+            infoDiv.innerHTML = '<p class="text-gray-500">กำลังค้นหา...</p>';
+            currentCustomer = null;
+            redemptionAmount = 0;
+            document.getElementById('loyalty-redeem-section').classList.add('hidden');
+            document.getElementById('redeem-info').textContent = '';
+
+            if (phone.length === 0) {
+                infoDiv.innerHTML = `<p class="text-red-500">ยังไม่ได้ระบุลูกค้า</p>`;
+                renderCart();
+                return;
+            }
+
+            try {
+                const customersCol = collection(db, 'customers');
+                const q = query(customersCol, where('phone', '==', phone), limit(1));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    const fullName = (firstName + ' ' + lastName).trim();
+                    if (!firstName || !lastName) {
+                        infoDiv.innerHTML = `<p class="text-orange-600">⚠ ไม่พบลูกค้า. กรอก ชื่อ และ นามสกุล เพื่อลงทะเบียน</p>`;
+                        return;
+                    }
+                    
+                    // Create new customer
+                    const newCustomerRef = await addDoc(collection(db, "customers"), {
+                        phone: phone,
+                        firstName: firstName,
+                        lastName: lastName,
+                        points: 0,
+                        registered_at: serverTimestamp()
+                    });
+
+                    currentCustomer = { id: newCustomerRef.id, phone, firstName, lastName, points: 0 };
+                    showCustomError(`✅ ลงทะเบียนลูกค้าใหม่: ${fullName}`, false);
+
+                } else {
+                    // Found existing customer
+                    const docSnap = querySnapshot.docs[0];
+                    currentCustomer = { id: docSnap.id, ...docSnap.data() };
+                    showCustomError(`✅ พบลูกค้าสมาชิก: ${currentCustomer.firstName}`, false);
+                }
+
+                // Update UI for found customer
+                infoDiv.innerHTML = `
+                    <p class="font-bold text-blue-700">${currentCustomer.firstName} ${currentCustomer.lastName}</p>
+                    <p class="text-sm">📞 ${currentCustomer.phone}</p>
+                    <p class="text-sm font-semibold text-yellow-800">⭐ แต้มสะสม: ${currentCustomer.points.toLocaleString()}</p>
+                `;
+                document.getElementById('loyalty-redeem-section').classList.remove('hidden');
+
+            } catch (error) {
+                showCustomError("❌ Error finding customer: " + error.message);
+            }
+            renderCart();
+        };
+
+        window.redeemPoints = function() {
+            if (!currentCustomer) return;
+
+            const redeemInput = document.getElementById('redeem-points-input');
+            const redeemPoints = parseInt(redeemInput.value);
+            const redeemInfo = document.getElementById('redeem-info');
+
+            if (isNaN(redeemPoints) || redeemPoints < 0) {
+                redeemInfo.textContent = '❌ กรุณาป้อนจำนวนแต้มที่ถูกต้อง';
+                redeemInfo.classList.add('text-red-600');
+                return;
+            }
+
+            if (redeemPoints > currentCustomer.points) {
+                redeemInfo.textContent = `❌ แต้มไม่พอ! คุณมี ${currentCustomer.points.toLocaleString()} แต้ม`;
+                redeemInfo.classList.add('text-red-600');
+                redemptionAmount = 0;
+                renderCart();
+                return;
+            }
+
+            // Redemption: 100 points = 1 THB
+            const amount = redeemPoints / 100;
+            redemptionAmount = amount;
+            
+            redeemInfo.textContent = `✅ แลก ${redeemPoints.toLocaleString()} แต้ม = ${amount.toFixed(2)} บาท`;
+            redeemInfo.classList.remove('text-red-600');
+            redeemInfo.classList.add('text-green-600');
+            
+            updatePaymentModalSummary();
+            renderCart();
+        };
+
+        // UPDATED: Discount Code Logic
+        window.applyDiscountCode = function() {
+            const code = document.getElementById('discount-code-input').value.trim();
+            const discountInfo = document.getElementById('discount-code-info');
+            discountCodeValue = 0; 
+            discountInfo.textContent = '';
+            
+            if (code === 'COFFEE20') {
+                discountCodeValue = 20; // 20 THB discount
+                discountInfo.textContent = `✅ ใช้โค้ด "${code}" ลด 20.00 บาท`;
+                discountInfo.classList.remove('text-red-600');
+                discountInfo.classList.add('text-green-600');
+            } else if (code === '1free1') {
+                discountCodeValue = 45; // 45 THB discount
+                discountInfo.textContent = `✅ ใช้โค้ด "${code}" ลด 45.00 บาท`;
+                discountInfo.classList.remove('text-red-600');
+                discountInfo.classList.add('text-green-600');
+            
+            } else if (code.length > 0) {
+                discountInfo.textContent = `❌ โค้ด "${code}" ไม่ถูกต้อง`;
+                discountCodeValue = 0; // Ensure reset
+                discountInfo.classList.add('text-red-600');
+            }
+            updatePaymentModalSummary();
+            renderCart();
+        };
+
+        // ----------------------------------------------------
+        // 8. Payment & Checkout Logic
+        // ----------------------------------------------------
+
+        window.calculateChange = function() {
+            const totalComponents = calculateCartTotal();
+            const total = totalComponents.total;
+            const receivedInput = document.getElementById('cash-received-input');
+            const changeSpan = document.getElementById('change-info').querySelector('span');
+            const cashButton = document.querySelector('#payment-options button[onclick="simulatePayment(\'Cash\')"]');
+
+            const received = parseFloat(receivedInput.value) || 0;
+            const change = Math.max(0, received - total);
+
+            if (received >= total && total > 0) {
+                if (cashButton) cashButton.disabled = false;
+            } else { // Cash received < total or total is 0
+                if (cashButton) cashButton.disabled = true;
+            }
+            changeSpan.textContent = change.toFixed(2);
+        };
+
+        function updatePaymentModalSummary() {
+            const totalComponents = calculateCartTotal();
+            const finalTotal = totalComponents.total;
+            document.getElementById('payment-summary').innerHTML = `ยอดรวมที่ต้องชำระ: <span class="text-red-600 font-extrabold">${finalTotal.toFixed(2)}</span> บาท`;
+
+            // NEW: ต้องเรียก calculateChange เพื่ออัปเดตสถานะปุ่มเงินสด
+            calculateChange(); 
+
+            if (currentCustomer) {
+                document.getElementById('current-points-info').innerHTML = `มีแต้มสะสม: <span class="font-bold">${currentCustomer.points.toLocaleString()}</span> แต้ม`;
+            }
+
+            // Reset redemption info if points or code changed
+            if (totalComponents.redeem_discount === 0 && redemptionAmount > 0) {
+                document.getElementById('redeem-info').textContent = 'แต้มที่แลกถูกลดเพราะยอดไม่พอ';
+                document.getElementById('redeem-info').classList.add('text-red-600');
+            } else if (redemptionAmount > 0) {
+                document.getElementById('redeem-info').textContent = `✅ แลก ${totalComponents.points_redeemed.toLocaleString()} แต้ม = ${totalComponents.redeem_discount.toFixed(2)} บาท`;
+            }
+
+            if (totalComponents.code_discount === 0 && discountCodeValue > 0) {
+                document.getElementById('discount-code-info').textContent = 'โค้ดส่วนลดถูกจำกัดเพราะยอดไม่พอ';
+                document.getElementById('discount-code-info').classList.add('text-red-600');
+            } else if (discountCodeValue > 0) {
+                document.getElementById('discount-code-info').textContent = `✅ โค้ดลด ${totalComponents.code_discount.toFixed(2)} บาท`;
+            }
+        }
+
+        // UPDATED openPaymentModal
+        window.openPaymentModal = () => {
+            if (cart.length === 0) return;
+            document.getElementById('payment-modal').classList.remove('hidden');
+
+            // Reset modal fields on open
+            document.getElementById('redeem-points-input').value = '';
+            document.getElementById('discount-code-input').value = '';
+            document.getElementById('discount-code-info').textContent = '';
+
+            // NEW Reset Change Fields
+            const cashButton = document.querySelector('#payment-options button[onclick="simulatePayment(\'Cash\')"]');
+            document.getElementById('cash-received-input').value = '';
+            document.getElementById('change-info').querySelector('span').textContent = '0.00';
+            if (cashButton) cashButton.disabled = true; // Disable Cash button initially
+
+            discountCodeValue = 0;
+            redemptionAmount = 0;
+            updatePaymentModalSummary();
+        };
+
+        // UPDATED simulatePayment
+        window.simulatePayment = async function(method) {
+            const totalComponents = calculateCartTotal();
+            const finalTotal = totalComponents.total;
+            const cashReceivedInput = document.getElementById('cash-received-input');
+            let cash_received = null;
+            let change_given = null;
+
+            if (finalTotal <= 0) {
+                 showCustomError("❌ ยอดรวมเป็น 0.00 บาท ไม่จำเป็นต้องชำระเงิน", true);
+                 return;
+            }
+            
+            if (method === 'Cash') {
+                cash_received = parseFloat(cashReceivedInput.value);
+                if (isNaN(cash_received) || cash_received < finalTotal) {
+                    showCustomError("❌ เงินสดที่ได้รับไม่พอ", true);
+                    return;
+                }
+                change_given = cash_received - finalTotal;
+            }
+
+            // NEW: Get the current time for immediate receipt display
+            const currentReceiptTime = new Date().toLocaleString('th-TH');
+
+            // 1. Prepare Order Object
+            // *** แก้ไขตรงนี้: 1 บาท (ยอดรวมสุทธิ) = 1 แต้ม (ปัดลง) ***
+            const pointsEarned = currentCustomer ? Math.floor(finalTotal) : 0; 
+            const pointsRedeemed = totalComponents.points_redeemed;
+
+            const newOrder = {
+                items: cart,
+                subtotal_amount: totalComponents.subtotal,
+                code_discount: totalComponents.code_discount,
+                redeem_discount: totalComponents.redeem_discount,
+                total_amount: finalTotal,
+                payment_method: method,
+                cash_received: cash_received, 
+                change_given: change_given,   
+                customer_uid: currentCustomer ? currentCustomer.id : null,
+                customer_phone: currentCustomer ? currentCustomer.phone : 'Guest',
+                customer_name: currentCustomer && currentCustomer.firstName && currentCustomer.lastName ? `${currentCustomer.firstName} ${currentCustomer.lastName}` : 'Guest',
+                points_earned: pointsEarned,
+                points_redeemed: pointsRedeemed,
+                staff_uid: currentUserId,
+                staff_name: staffName,
+                timestamp: serverTimestamp(),
+                receipt_datetime: currentReceiptTime,
+            };
+
+            let customerBeforePoints = null;
+
+            // 2. Calculate and Update Loyalty Points
+            if (currentCustomer) {
+                customerBeforePoints = currentCustomer.points;
+                const newPoints = currentCustomer.points - pointsRedeemed + pointsEarned;
+                try {
+                    await updateDoc(doc(db, "customers", currentCustomer.id), {
+                        points: newPoints
+                    });
+                    currentCustomer.points = newPoints;
+                } catch (error) {
+                    showCustomError("❌ Error updating loyalty points: " + error.message);
+                }
+            }
+
+            // 3. Save Order to Firestore
+            try {
+                const orderRef = await addDoc(collection(db, "orders"), newOrder);
+                newOrder.id = orderRef.id;
+            } catch (error) {
+                showCustomError("❌ Error saving order: " + error.message);
+            }
+            
+            // 4. Show Receipt Modal
+            showReceiptModal(newOrder, customerBeforePoints);
+
+            // 5. Reset POS
+            cart = [];
+            redemptionAmount = 0;
+            discountCodeValue = 0;
+            currentCustomer = null; // IMPORTANT: Reset customer
+            document.getElementById('loyalty-phone-input').value = '';
+            document.getElementById('loyalty-first-name-input').value = '';
+            document.getElementById('loyalty-last-name-input').value = '';
+            document.getElementById('customer-info').innerHTML = `<p class="text-red-500">ยังไม่ได้ระบุลูกค้า</p>`;
+            document.getElementById('loyalty-redeem-section').classList.add('hidden');
+            document.getElementById('payment-modal').classList.add('hidden');
+            renderCart();
+            
+            // 6. Update Reports
+            if (userRole === 'admin') {
+                renderSalesReport('daily');
+                renderOrderHistory(true); // Re-fetch and cache new orders
+            }
+        };
+
+        // UPDATED showReceiptModal
+        window.showReceiptModal = function(order, customerBeforePoints) {
+            const modal = document.getElementById('receipt-modal');
+            const details = document.getElementById('receipt-details');
+            const itemsList = document.getElementById('receipt-items');
+            const summary = document.getElementById('receipt-summary');
+            
+            // Use receipt_datetime if available (from current payment), or convert timestamp for old orders
+            let dateTimeToDisplay = 'N/A';
+            if (order.receipt_datetime) {
+                dateTimeToDisplay = order.receipt_datetime;
+            } else if (order.timestamp && order.timestamp.toDate) {
+                try {
+                    dateTimeToDisplay = order.timestamp.toDate().toLocaleString('th-TH');
+                } catch (e) { /* ignore */ }
+            }
+            
+            details.innerHTML = `
+                <div class="flex justify-between"><span>พนักงาน:</span><span>${order.staff_name}</span></div>
+                <div class="flex justify-between"><span>วันที่/เวลา:</span><span>${dateTimeToDisplay}</span></div>
+                <div class="flex justify-between"><span>ออเดอร์ ID:</span><span>${order.id || 'N/A'}</span></div>
+                <div class="flex justify-between"><span>ลูกค้า:</span><span>${order.customer_name} (${order.customer_phone})</span></div>
+            `;
+
+            itemsList.innerHTML = order.items.map(item => `
+                <div class="flex justify-between text-gray-800">
+                    <span class="w-1/2">${item.name}</span>
+                    <span class="w-1/4 text-center">${item.quantity} x ${item.price.toFixed(2)}</span>
+                    <span class="w-1/4 text-right">${(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+            `).join('');
+
+            let loyaltySummary = '';
+            // Only show loyalty summary if we have some point data (earned/redeemed > 0 or customerBeforePoints is passed)
+            if (order.points_earned > 0 || order.points_redeemed > 0) {
+                 // The accuracy of 'Points Before' for old transactions requires storing it explicitly during the transaction.
+                
+                let pointsAfter = 'N/A';
+                if (customerBeforePoints >= 0) { // Only show this calculation for live transaction or when a starting point is provided
+                    pointsAfter = (customerBeforePoints - order.points_redeemed + order.points_earned).toLocaleString();
+                }
+
+                loyaltySummary = `
+                    <div class="flex justify-between text-xs text-red-600 pt-1 border-t mt-2"><span>แลกแต้ม:</span><span class="font-bold">-${order.points_redeemed.toLocaleString()}</span></div>
+                    <div class="flex justify-between text-xs text-green-600"><span>รับแต้ม:</span><span class="font-bold">+${order.points_earned.toLocaleString()}</span></div>
+                    ${pointsAfter !== 'N/A' ? `<div class="flex justify-between text-sm font-bold mt-1 text-yellow-800 border-t pt-1"><span>แต้มใหม่:</span><span>${pointsAfter}</span></div>` : ''}
+                `;
+            }
+
+            summary.innerHTML = `
+                <div class="flex justify-between text-sm"><span>ยอดรวมก่อนลด:</span><span>${order.subtotal_amount.toFixed(2)}</span></div>
+                ${order.code_discount > 0 ? `<div class="flex justify-between text-sm text-red-600"><span>ส่วนลดโค้ด:</span><span>-${order.code_discount.toFixed(2)}</span></div>` : ''}
+                ${order.redeem_discount > 0 ? `<div class="flex justify-between text-sm text-red-600"><span>ส่วนลดแต้ม:</span><span>-${order.redeem_discount.toFixed(2)}</span></div>` : ''}
+                <div class="flex justify-between text-lg font-bold border-t mt-2 pt-2">
+                    <span>ยอดรวมสุทธิ:</span><span>${order.total_amount.toFixed(2)} บาท</span>
+                </div>
+                <div class="text-sm mt-3">
+                    <div class="flex justify-between"><span>วิธีชำระ:</span><span>${order.payment_method}</span></div>
+                    ${order.cash_received !== null && order.cash_received !== undefined ? `<div class="flex justify-between"><span>รับเงินสด:</span><span>${order.cash_received.toFixed(2)}</span></div>` : ''}
+                    ${order.change_given !== null && order.change_given !== undefined ? `<div class="flex justify-between"><span>เงินทอน:</span><span class="font-bold text-green-600">${order.change_given.toFixed(2)}</span></div>` : ''}
+                </div>
+                ${loyaltySummary}
+            `;
+
+            modal.classList.remove('hidden');
+            document.getElementById('payment-modal').classList.add('hidden');
+        }
+
+
+        // ----------------------------------------------------
+        // 9. Admin & Report Logic
+        // ----------------------------------------------------
+        
+        // NEW: Function to fetch all orders
+        async function fetchOrders() {
+            const ordersCol = collection(db, 'orders');
+            // Query to fetch orders sorted by timestamp in descending order
+            const q = query(ordersCol, orderBy('timestamp', 'desc'));
+            const orderSnapshot = await getDocs(q);
+            return orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        }
+
+        // UPDATED: renderSalesReport with Period Filter and Export Fix
+        window.renderSalesReport = async (period = 'daily') => {
+            // 1. Update active button style
+            document.querySelectorAll('#admin-tab-sales button[id^="filter-"]').forEach(btn => {
+                btn.classList.remove('bg-blue-100', 'hover:bg-blue-200', 'text-blue-800');
+                btn.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-700');
+            });
+            const activeBtn = document.getElementById(`filter-${period}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-gray-200', 'hover:bg-gray-300', 'text-gray-700');
+                activeBtn.classList.add('bg-blue-100', 'hover:bg-blue-200', 'text-blue-800');
+            }
+
+            // 2. Get date range and create query
+            const { startDate, endDate } = getDateRange(period);
+            const ordersCol = collection(db, 'orders');
+            
+            // NOTE: Firestore requires the first orderBy to match the 'where' field if using range queries
+            const q = query(ordersCol, 
+                where('timestamp', '>=', startDate),
+                where('timestamp', '<=', endDate),
+                orderBy('timestamp', 'desc')
+            );
+            
+            try {
+                const orderSnapshot = await getDocs(q);
+                // **IMPORTANT: Must get ID with data for export function**
+                const orders = orderSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // **FIX FOR EXPORT:** Store filtered orders globally
+                currentFilteredOrders = orders;
+
+                let totalSales = 0;
+                const productSales = {};
+                let uniqueCustomers = new Set();
+                let totalOrders = 0;
+
+                orders.forEach(order => {
+                    totalSales += order.total_amount;
+                    totalOrders += 1;
+
+                    // Track product sales
+                    order.items.forEach(item => {
+                        const productName = item.name;
+                        // For reporting, use subtotal before discounts for product ranking
+                        productSales[productName] = (productSales[productName] || 0) + item.price * item.quantity;
+                    });
+
+                    // Track unique customers
+                    if (order.customer_phone && order.customer_phone !== 'Guest') {
+                        uniqueCustomers.add(order.customer_phone);
+                    }
+                });
+
+                document.getElementById('report-total-sales').textContent = totalSales.toFixed(2) + ' ฿';
+                document.getElementById('report-total-orders').textContent = totalOrders.toLocaleString() + ' รายการ';
+                document.getElementById('report-total-customers').textContent = uniqueCustomers.size.toLocaleString() + ' คน';
+
+                // Chart Logic (Top 5 Products)
+                const sortedProducts = Object.entries(productSales)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 5);
+
+                const productNames = sortedProducts.map(([name]) => name);
+                const productAmounts = sortedProducts.map(([, amount]) => amount);
+
+                if (myChart) {
+                    myChart.destroy();
+                }
+
+                const ctx = document.getElementById('salesChart').getContext('2d');
+                myChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: productNames,
+                        datasets: [{
+                            label: 'ยอดขาย (บาท)',
+                            data: productAmounts,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.7)',
+                                'rgba(54, 162, 235, 0.7)',
+                                'rgba(255, 206, 86, 0.7)',
+                                'rgba(75, 192, 192, 0.7)',
+                                'rgba(153, 102, 255, 0.7)',
+                            ],
+                            borderColor: [
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(153, 102, 255, 1)',
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `สินค้าขายดี 5 อันดับแรก (รายงาน: ${period.toUpperCase()})`
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                showCustomError(`❌ Error fetching sales report: ${error.message}`, true);
+            }
+        }
+
+        // **FIXED:** Order History Functions
+        window.renderOrderHistory = async (forceRefetch = false) => {
+            if (userRole !== 'admin') return; // ยังคงให้ Admin เท่านั้นที่เข้าถึงประวัติทั้งหมดได้
+
+            if (allOrdersCache.length === 0 || forceRefetch) {
+                try {
+                    allOrdersCache = await fetchOrders(); 
+                } catch (error) {
+                    showCustomError("❌ Error fetching order history: " + error.message, true);
+                    return;
+                }
+            }
+            filterOrderHistory(); 
+        };
+
+        window.filterOrderHistory = () => {
+            const listBody = document.getElementById('order-history-list');
+            const searchTerm = document.getElementById('order-search-input').value.toLowerCase().trim();
+
+            const filteredOrders = allOrdersCache.filter(order => {
+                if (!searchTerm) return true;
+                
+                // Check ID, customer name/phone, and staff name
+                const orderId = order.id || '';
+                const matchID = orderId.toLowerCase().includes(searchTerm);
+                const matchCustomer = order.customer_name.toLowerCase().includes(searchTerm) || 
+                                      (order.customer_phone || '').toLowerCase().includes(searchTerm);
+                const matchStaff = order.staff_name.toLowerCase().includes(searchTerm);
+                
+                return matchID || matchCustomer || matchStaff;
+            });
+
+            listBody.innerHTML = filteredOrders.map(order => {
+                let dateTimeDisplay = 'N/A';
+                if (order.receipt_datetime) {
+                    dateTimeDisplay = order.receipt_datetime;
+                } else if (order.timestamp && order.timestamp.toDate) {
+                    try {
+                        dateTimeDisplay = order.timestamp.toDate().toLocaleString('th-TH');
+                    } catch (e) { /* ignore */ }
+                }
+                
+                const orderIdShort = order.id ? order.id.substring(0, 8) + '...' : 'N/A';
+
+                return `
+                    <tr class="hover:bg-gray-100">
+                        <td class="px-3 py-2 whitespace-nowrap text-xs font-mono">${orderIdShort}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm">${dateTimeDisplay}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm">${order.customer_name} (${order.customer_phone})</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-sm">${order.staff_name}</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-right font-bold text-green-700">${order.total_amount.toFixed(2)} ฿</td>
+                        <td class="px-3 py-2 whitespace-nowrap text-center">
+                            <button onclick="viewOrderDetails('${order.id}')" class="text-blue-600 hover:text-blue-800 text-xs">ดูรายละเอียด</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        };
+
+        window.viewOrderDetails = (orderId) => {
+            const order = allOrdersCache.find(o => o.id === orderId);
+            if (!order) {
+                showCustomError('❌ ไม่พบข้อมูลคำสั่งซื้อ', true);
+                return;
+            }
+            // Passing 0 for points before, as the exact value for old orders is not stored in the structure
+            showReceiptModal(order, 0); 
+        };
+
+        // **FIXED & IMPROVED:** Export Sales Data with BOM and detailed accounting fields
+        window.exportSalesDataToCSV = function() {
+            // ใช้ข้อมูลที่ดึงมาล่าสุดจากการเรียก renderSalesReport (currentFilteredOrders)
+            const ordersForExport = currentFilteredOrders; 
+            
+            if (ordersForExport.length === 0) {
+                showCustomError("❌ ไม่มีข้อมูลยอดขายในช่วงเวลานี้สำหรับการส่งออก", true);
+                return;
+            }
+
+            // Headers for CSV (เพิ่มรายละเอียดที่จำเป็นสำหรับบัญชี)
+            const headers = [
+                'ID ออร์เดอร์', 'วันที่/เวลา', 'พนักงาน', 'ลูกค้า (โทร)', 
+                'รายการสินค้า', 'ยอดรวมก่อนลด', 'ส่วนลดแลกแต้ม', 'ส่วนลดโค้ด', 
+                'รวมสุทธิ', 'วิธีการชำระ', 'เงินที่ได้รับ', 'เงินทอน', 'แต้มที่ได้รับ'
+            ]; 
+            let csv = headers.map(h => `"${h}"`).join(',') + '\n'; // ใส่เครื่องหมายคำพูดเพื่อให้ข้อมูลไม่ผิดเพี้ยน
+
+            ordersForExport.forEach(order => {
+                // 1. Prepare Date/Time
+                let dateTimeDisplay = 'N/A';
+                if (order.receipt_datetime) {
+                    dateTimeDisplay = order.receipt_datetime;
+                } else if (order.timestamp && order.timestamp.toDate) {
+                    try {
+                        dateTimeDisplay = order.timestamp.toDate().toLocaleString('th-TH');
+                    } catch (e) { /* ignore */ }
+                }
+
+                // 2. Summarize Items for one cell (Accounting Friendly format)
+                // Format: 'สินค้า A (x2) @ 50.00 | สินค้า B (x1) @ 100.00'
+                const itemSummary = order.items.map(item => 
+                    `${item.name} (x${item.quantity}) @ ${item.price.toFixed(2)}`
+                ).join(' | ');
+
+                // 3. Prepare row values
+                const rowData = [
+                    order.id || 'N/A',
+                    dateTimeDisplay,
+                    order.staff_name || 'N/A',
+                    `${order.customer_name || 'Walk-in'} (${order.customer_phone || 'N/A'})`,
+                    itemSummary, // รายละเอียดสินค้าทั้งหมดในออร์เดอร์
+                    (order.subtotal_amount || 0).toFixed(2),
+                    (order.redeem_discount || 0).toFixed(2),
+                    (order.code_discount || 0).toFixed(2),
+                    (order.total_amount || 0).toFixed(2),
+                    order.payment_method || 'N/A',
+                    (order.cash_received !== null && order.cash_received !== undefined ? order.cash_received : 0).toFixed(2),
+                    (order.change_given !== null && order.change_given !== undefined ? order.change_given : 0).toFixed(2),
+                    (order.points_earned || 0).toLocaleString()
+                ];
+                
+                // 4. Format row for CSV (จัดการกับเครื่องหมายจุลภาคและเครื่องหมายคำพูดในข้อมูล)
+                const row = rowData.map(value => {
+                    // Replace double quotes with escaped double quotes
+                    let stringValue = String(value).replace(/"/g, '""');
+                    // Enclose in double quotes if it contains commas, newlines, or double quotes
+                    if (stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('"')) {
+                        stringValue = `"${stringValue}"`;
+                    }
+                    return stringValue;
+                }).join(',');
+
+                csv += row + '\n';
+            });
+
+            // 5. Trigger Download
+            const periodName = document.querySelector('#admin-tab-sales button.bg-blue-100')?.textContent.trim() || 'ยอดขายทั้งหมด';
+            const filename = `Sales_Report_${periodName}_${new Date().toISOString().slice(0, 10)}.csv`;
+            
+            // เพิ่ม BOM (Byte Order Mark) เพื่อให้ Excel สามารถอ่านภาษาไทยได้ถูกต้อง
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv;charset=utf-8;' }); 
+            const link = document.createElement("a");
+
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showCustomError(`✅ ส่งออกข้อมูล ${ordersForExport.length} รายการสำเร็จ`, false);
+            } else {
+                showCustomError("❌ เบราว์เซอร์ไม่รองรับการดาวน์โหลดอัตโนมัติ", true);
+            }
+        };
+
+
+        async function renderAdminUserList() {
+            if (userRole !== 'admin') return;
+            const usersCol = collection(db, 'users');
+            const userSnapshot = await getDocs(usersCol);
+            const users = userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const listDiv = document.getElementById('admin-user-list');
+            listDiv.innerHTML = users.map(u => `
+                <div class="flex justify-between items-center p-3 border rounded-lg shadow-sm ${u.role === 'admin' ? 'bg-blue-50' : 'bg-gray-50'}">
+                    <div class="flex-grow">
+                        <p class="font-bold text-gray-800">${u.name} ${u.id === currentUserId ? '(คุณ)' : ''}</p>
+                        <p class="text-sm text-gray-600">${u.email}</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="font-extrabold p-1 rounded ${u.role === 'admin' ? 'text-red-600' : 'text-green-600'}">
+                            ${u.role.toUpperCase()}
+                        </span>
+                        
+                        <button onclick="promptAndSaveName('${u.id}', '${u.name}')" class="text-indigo-600 hover:text-indigo-800 text-sm">เปลี่ยนชื่อ</button>
+
+                        ${u.id !== currentUserId ? 
+                            `<select onchange="updateUserRole('${u.id}', this.value, '${u.name}')" class="p-1 border rounded text-sm bg-white">
+                                <option value="staff" ${u.role === 'staff' ? 'selected' : ''}>Staff</option>
+                                <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                            </select>` 
+                            : ''
+                        }
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.promptAndSaveName = async (userId, oldName) => {
+            if (userRole !== 'admin') {
+                showCustomError("❌ เฉพาะ Admin เท่านั้นที่จัดการบัญชีได้");
+                return;
+            }
+            const newName = prompt(`เปลี่ยนชื่อสำหรับ: ${oldName}`, oldName);
+            if (newName && newName.trim() !== oldName) {
+                try {
+                    await updateDoc(doc(db, "users", userId), {
+                        name: newName.trim()
+                    });
+                    showCustomError(`✅ อัปเดตชื่อเป็น "${newName.trim()}" สำเร็จ`, false);
+                    
+                    if (userId === currentUserId) {
+                        staffName = newName.trim();
+                        document.getElementById('user-info').textContent = `${staffName} (${userRole})`;
+                    }
+                    renderAdminUserList();
+                } catch (error) {
+                    showCustomError("❌ Error updating user name: " + error.message);
+                }
+            }
+        };
+
+        window.updateUserRole = async (userId, newRole, name) => {
+            if (userRole !== 'admin' || userId === currentUserId) {
+                showCustomError("❌ ไม่สามารถแก้ไขบทบาทตัวเองได้ หรือคุณไม่มีสิทธิ์");
+                return;
+            }
+            if (confirm(`คุณต้องการเปลี่ยนบทบาทของ ${name} เป็น ${newRole.toUpperCase()} ใช่หรือไม่?`)) {
+                try {
+                    await updateDoc(doc(db, "users", userId), {
+                        role: newRole
+                    });
+                    showCustomError(`✅ อัปเดตบทบาทของ ${name} เป็น ${newRole.toUpperCase()} สำเร็จ`, false);
+                    renderAdminUserList();
+                } catch (error) {
+                    showCustomError("❌ Error updating user role: " + error.message);
+                }
+            }
+        };
+
+    </script>
+</body>
+</html>
